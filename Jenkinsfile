@@ -1,4 +1,3 @@
-```groovy
 pipeline {
 
     agent any
@@ -465,4 +464,3 @@ Attempting Kubernetes rollback if required...
         }
     }
 }
-```
