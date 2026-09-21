@@ -7,7 +7,7 @@ const APP_VERSION = process.env.APP_VERSION || "development";
 
 app.get("/", (req, res) => {
     res.json({
-        application: "CI/CD Demo",
+        application: "CI/CD Demo V2",
         status: "running",
         version: APP_VERSION
     });
