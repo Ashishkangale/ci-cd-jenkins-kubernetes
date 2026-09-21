@@ -1,0 +1,12 @@
+{
+  "name": "ci-cd-demo",
+  "version": "1.0.0",
+  "description": "CI/CD demonstration application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
