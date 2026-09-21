@@ -1,3 +1,4 @@
+```groovy
 pipeline {
 
     agent any
@@ -32,12 +33,6 @@ pipeline {
 
     stages {
 
-        /*
-         * ==========================================
-         * CHECKOUT
-         * ==========================================
-         */
-
         stage('Checkout') {
             steps {
                 cleanWs()
@@ -46,9 +41,12 @@ pipeline {
 
                 script {
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                     env.GIT_COMMIT_SHORT = sh(
                         script: 'git rev-parse --short=7 HEAD',
                         returnStdout: true
@@ -59,6 +57,7 @@ pipeline {
                 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
                 echo "========================================="
                 echo "Checkout completed"
                 echo "Repository : ${env.GIT_URL ?: 'Git repository'}"
@@ -68,20 +67,19 @@ pipeline {
                 echo "========================================="
 =======
                 echo "Checkout completed"
+=======
+                echo "Checkout completed"
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                 echo "Repository: ${env.GIT_URL ?: 'Git repository'}"
                 echo "Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'}"
                 echo "Commit: ${env.GIT_COMMIT_SHORT}"
                 echo "Image Tag: ${env.IMAGE_TAG}"
+<<<<<<< HEAD
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
             }
         }
-
-
-        /*
-         * ==========================================
-         * PROJECT VALIDATION
-         * ==========================================
-         */
 
         stage('Validate') {
             steps {
@@ -98,17 +96,10 @@ pipeline {
                     test -f k8s/deployment.yaml
                     test -f k8s/service.yaml
 
-                    echo "Project validation successful."
+                    echo "Validation successful."
                 '''
             }
         }
-
-
-        /*
-         * ==========================================
-         * APPLICATION BUILD
-         * ==========================================
-         */
 
         stage('Application Build') {
             steps {
@@ -116,7 +107,7 @@ pipeline {
                     sh '''
                         set -eu
 
-                        echo "Installing Node.js dependencies..."
+                        echo "Installing dependencies..."
 
                         npm install
 
@@ -127,6 +118,7 @@ pipeline {
         }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 
         /*
          * ==========================================
@@ -134,19 +126,16 @@ pipeline {
          * ==========================================
          */
 
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
         stage('Docker Check') {
-
             steps {
-
                 sh '''
                     set -eu
 
                     echo "Checking Docker..."
 
                     docker --version
-
-                    echo "Checking Docker daemon..."
-
                     docker ps
 
                     echo "Docker is available to Jenkins."
@@ -154,14 +143,8 @@ pipeline {
             }
         }
 
-
-        /*
-         * ==========================================
-         * DOCKER BUILD
-         * ==========================================
-         */
-
         stage('Docker Build') {
+<<<<<<< HEAD
 
 =======
         stage('Docker Check') {
@@ -171,6 +154,9 @@ pipeline {
                     set -eu
 
 <<<<<<< HEAD
+=======
+            steps {
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                 sh """
                     set -eu
 
@@ -216,13 +202,6 @@ pipeline {
             }
         }
 
-
-        /*
-         * ==========================================
-         * DOCKER PUSH
-         * ==========================================
-         */
-
         stage('Docker Push') {
             steps {
                 withCredentials([
@@ -236,17 +215,21 @@ pipeline {
                         set -eu
 <<<<<<< HEAD
 
+<<<<<<< HEAD
                         echo "Logging into Docker Hub..."
 =======
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
 
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                         echo "\${DOCKER_PASSWORD}" | docker login \
                             ${DOCKER_REGISTRY} \
                             --username "\${DOCKER_USERNAME}" \
                             --password-stdin
 
-                        echo "Pushing versioned image..."
+                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
 
+<<<<<<< HEAD
                         docker push \
                             ${DOCKER_IMAGE}:${IMAGE_TAG}
 
@@ -264,17 +247,17 @@ pipeline {
 
                         echo "Docker images pushed successfully."
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+                        docker push ${DOCKER_IMAGE}:latest
+
+                        docker logout ${DOCKER_REGISTRY} || true
+
+                        echo "Docker images pushed successfully."
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                     """
                 }
             }
         }
-
-
-        /*
-         * ==========================================
-         * KUBERNETES VALIDATION
-         * ==========================================
-         */
 
         stage('Kubernetes Validation') {
             steps {
@@ -307,13 +290,6 @@ pipeline {
             }
         }
 
-
-        /*
-         * ==========================================
-         * DEPLOY TO KUBERNETES
-         * ==========================================
-         */
-
         stage('Deploy to Kubernetes') {
             steps {
                 withCredentials([
@@ -328,10 +304,14 @@ pipeline {
                         export KUBECONFIG="\${KUBECONFIG_FILE}"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
                         echo "Creating/updating namespace..."
 =======
                         echo "Applying namespace..."
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+                        echo "Applying namespace..."
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
 
                         kubectl apply \
                             -f k8s/namespace.yaml
@@ -354,12 +334,15 @@ pipeline {
 
                         echo "Deployment image updated."
 <<<<<<< HEAD
+<<<<<<< HEAD
 
                         echo "Saving deployment attempt status..."
 
                         echo "true" > deployment_attempted.txt
 =======
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                     """
 
                     script {
@@ -368,13 +351,6 @@ pipeline {
                 }
             }
         }
-
-
-        /*
-         * ==========================================
-         * VERIFY DEPLOYMENT
-         * ==========================================
-         */
 
         stage('Verify Deployment') {
             steps {
@@ -389,12 +365,13 @@ pipeline {
 
                         export KUBECONFIG="\${KUBECONFIG_FILE}"
 
-                        echo "Waiting for Kubernetes rollout..."
+                        echo "Waiting for rollout..."
 
                         kubectl -n ${K8S_NAMESPACE} rollout status \
                             deployment/${K8S_DEPLOYMENT} \
                             --timeout=180s
 
+<<<<<<< HEAD
                         echo "Rollout completed successfully."
 
 <<<<<<< HEAD
@@ -404,8 +381,13 @@ pipeline {
                             ${K8S_DEPLOYMENT}
 
                         echo "Pod status:"
+=======
+                        echo "Deployment successful."
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
 
+                        kubectl -n ${K8S_NAMESPACE} get deployment
                         kubectl -n ${K8S_NAMESPACE} get pods
+<<<<<<< HEAD
 
                         echo "Service status:"
 
@@ -413,25 +395,19 @@ pipeline {
                         kubectl -n ${K8S_NAMESPACE} get deployment
                         kubectl -n ${K8S_NAMESPACE} get pods
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                         kubectl -n ${K8S_NAMESPACE} get service
-
-                        echo "Deployment verification successful."
-                    '''
+                    """
                 }
             }
         }
     }
 
-
-    /*
-     * ==========================================
-     * POST ACTIONS
-     * ==========================================
-     */
-
     post {
 
         success {
+<<<<<<< HEAD
 <<<<<<< HEAD
 
             echo """
@@ -448,16 +424,21 @@ Commit      : ${GIT_COMMIT_SHORT}
 =========================================
 """
 =======
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
             echo "CI/CD pipeline completed successfully."
             echo "Application: ${APP_NAME}"
             echo "Docker Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
             echo "Build: ${BUILD_NUMBER}"
             echo "Commit: ${GIT_COMMIT_SHORT}"
+<<<<<<< HEAD
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
         }
 
-
         failure {
+<<<<<<< HEAD
 <<<<<<< HEAD
 
             echo """
@@ -481,6 +462,12 @@ Attempting Kubernetes rollback if required...
 
             script {
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+            echo "CI/CD pipeline failed."
+            echo "Build: ${BUILD_NUMBER}"
+
+            script {
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                 if (env.DEPLOYMENT_ATTEMPTED == "true") {
 
                     withCredentials([
@@ -495,28 +482,32 @@ Attempting Kubernetes rollback if required...
                             export KUBECONFIG="$KUBECONFIG_FILE"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
                             echo "Rolling back Kubernetes deployment..."
 =======
                             echo "Attempting Kubernetes rollback..."
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+                            echo "Attempting Kubernetes rollback..."
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
 
                             kubectl -n cicd-demo rollout undo \
-                                deployment/cicd-demo
-
-                            echo "Rollback command completed."
+                                deployment/cicd-demo || true
                         '''
                     }
 
                 } else {
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
                     echo "No Kubernetes deployment was attempted. Rollback skipped."
                 }
             }
         }
-
 
         always {
             echo "Cleaning Docker resources..."
@@ -535,6 +526,10 @@ Attempting Kubernetes rollback if required...
     }
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 ```
 >>>>>>> d1add64 (Fix Jenkinsfile syntax)
+=======
+```
+>>>>>>> afcb21a (Fix Jenkinsfile syntax)
