@@ -1,3 +1,4 @@
+```groovy
 pipeline {
 
     agent any
@@ -20,7 +21,6 @@ pipeline {
         APP_NAME = "cicd-demo"
 
         DOCKER_REGISTRY = "docker.io"
-
         DOCKER_IMAGE = "sweshsmarth/cicd-demo"
 
         DOCKER_CREDENTIALS = "dockerhub-credentials"
@@ -28,11 +28,18 @@ pipeline {
         KUBECONFIG_CREDENTIAL = "kubeconfig-ec2"
 
         K8S_NAMESPACE = "cicd-demo"
-
         K8S_DEPLOYMENT = "cicd-demo"
+
+        DEPLOYMENT_ATTEMPTED = "false"
     }
 
     stages {
+
+        /*
+         * ==========================================
+         * CHECKOUT
+         * ==========================================
+         */
 
         stage('Checkout') {
 
@@ -43,28 +50,39 @@ pipeline {
                 checkout scm
 
                 script {
+
                     env.GIT_COMMIT_SHORT = sh(
                         script: 'git rev-parse --short=7 HEAD',
                         returnStdout: true
                     ).trim()
-                    
-                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+
+                    env.IMAGE_TAG =
+                        "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
                 }
 
-
-                echo "Repository: ${env.GIT_URL ?: 'Git repository'}"
-                echo "Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'}"
-                echo "Commit: ${env.GIT_COMMIT}"
-                echo "Image Tag: ${env.IMAGE_TAG}"
+                echo "========================================="
+                echo "Checkout completed"
+                echo "Repository : ${env.GIT_URL ?: 'Git repository'}"
+                echo "Branch     : ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'}"
+                echo "Commit     : ${env.GIT_COMMIT_SHORT}"
+                echo "Image Tag  : ${env.IMAGE_TAG}"
+                echo "========================================="
             }
         }
+
+
+        /*
+         * ==========================================
+         * PROJECT VALIDATION
+         * ==========================================
+         */
 
         stage('Validate') {
 
             steps {
 
                 sh '''
-                    set -e
+                    set -eu
 
                     echo "Validating project structure..."
 
@@ -72,13 +90,21 @@ pipeline {
                     test -f app/package.json
                     test -f app/server.js
 
+                    test -f k8s/namespace.yaml
                     test -f k8s/deployment.yaml
                     test -f k8s/service.yaml
 
-                    echo "Validation successful."
+                    echo "Project validation successful."
                 '''
             }
         }
+
+
+        /*
+         * ==========================================
+         * APPLICATION BUILD
+         * ==========================================
+         */
 
         stage('Application Build') {
 
@@ -87,9 +113,9 @@ pipeline {
                 dir('app') {
 
                     sh '''
-                        set -e
+                        set -eu
 
-                        echo "Installing dependencies..."
+                        echo "Installing Node.js dependencies..."
 
                         npm install
 
@@ -99,31 +125,68 @@ pipeline {
             }
         }
 
+
+        /*
+         * ==========================================
+         * DOCKER CHECK
+         * ==========================================
+         */
+
+        stage('Docker Check') {
+
+            steps {
+
+                sh '''
+                    set -eu
+
+                    echo "Checking Docker..."
+
+                    docker --version
+
+                    echo "Checking Docker daemon..."
+
+                    docker ps
+
+                    echo "Docker is available to Jenkins."
+                '''
+            }
+        }
+
+
+        /*
+         * ==========================================
+         * DOCKER BUILD
+         * ==========================================
+         */
+
         stage('Docker Build') {
 
             steps {
 
-                script {
+                sh """
+                    set -eu
 
-                    env.IMAGE_TAG =
-                        "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+                    echo "Building Docker image..."
 
-                    sh """
-                        set -e
+                    docker build \
+                        -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
+                        -t ${DOCKER_IMAGE}:latest \
+                        -f app/Dockerfile \
+                        app/
 
-                        echo "Building Docker image..."
+                    echo "Docker image created successfully."
 
-                        docker build \
-                            -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
-                            -t ${DOCKER_IMAGE}:latest \
-                            -f app/Dockerfile \
-                            app/
-
-                        echo "Docker image created."
-                    """
-                }
+                    docker images ${DOCKER_IMAGE}
+                """
             }
         }
+
+
+        /*
+         * ==========================================
+         * DOCKER PUSH
+         * ==========================================
+         */
 
         stage('Docker Push') {
 
@@ -138,22 +201,39 @@ pipeline {
                 ]) {
 
                     sh """
-                        set -e
+                        set -eu
+
+                        echo "Logging into Docker Hub..."
 
                         echo "\${DOCKER_PASSWORD}" | docker login \
                             ${DOCKER_REGISTRY} \
-                            -u "\${DOCKER_USERNAME}" \
+                            --username "\${DOCKER_USERNAME}" \
                             --password-stdin
 
-                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        echo "Pushing versioned image..."
 
-                        docker push ${DOCKER_IMAGE}:latest
+                        docker push \
+                            ${DOCKER_IMAGE}:${IMAGE_TAG}
 
-                        docker logout ${DOCKER_REGISTRY}
+                        echo "Pushing latest image..."
+
+                        docker push \
+                            ${DOCKER_IMAGE}:latest
+
+                        echo "Docker images pushed successfully."
+
+                        docker logout ${DOCKER_REGISTRY} || true
                     """
                 }
             }
         }
+
+
+        /*
+         * ==========================================
+         * KUBERNETES VALIDATION
+         * ==========================================
+         */
 
         stage('Kubernetes Validation') {
 
@@ -167,13 +247,19 @@ pipeline {
                 ]) {
 
                     sh '''
-                        set -e
+                        set -eu
 
                         export KUBECONFIG="$KUBECONFIG_FILE"
+
+                        echo "Checking kubectl..."
+
+                        kubectl version --client
 
                         echo "Checking Kubernetes cluster..."
 
                         kubectl cluster-info
+
+                        echo "Checking Kubernetes nodes..."
 
                         kubectl get nodes
 
@@ -182,6 +268,13 @@ pipeline {
                 }
             }
         }
+
+
+        /*
+         * ==========================================
+         * DEPLOY TO KUBERNETES
+         * ==========================================
+         */
 
         stage('Deploy to Kubernetes') {
 
@@ -195,33 +288,51 @@ pipeline {
                 ]) {
 
                     sh """
-                        set -e
+                        set -eu
 
                         export KUBECONFIG="\${KUBECONFIG_FILE}"
 
-                        echo "Creating namespace..."
+                        echo "Creating/updating namespace..."
 
-                        kubectl apply -f k8s/namespace.yaml
+                        kubectl apply \
+                            -f k8s/namespace.yaml
 
-                        echo "Deploying service..."
+                        echo "Applying service..."
 
-                        kubectl apply -f k8s/service.yaml
+                        kubectl apply \
+                            -f k8s/service.yaml
 
-                        echo "Deploying application..."
+                        echo "Applying deployment..."
 
-                        kubectl apply -f k8s/deployment.yaml
+                        kubectl apply \
+                            -f k8s/deployment.yaml
 
-                        echo "Updating image..."
+                        echo "Updating deployment image..."
 
                         kubectl -n ${K8S_NAMESPACE} set image \
                             deployment/${K8S_DEPLOYMENT} \
                             ${APP_NAME}=${DOCKER_IMAGE}:${IMAGE_TAG}
 
-                        echo "Deployment updated."
+                        echo "Deployment image updated."
+
+                        echo "Saving deployment attempt status..."
+
+                        echo "true" > deployment_attempted.txt
                     """
+
+                    script {
+                        env.DEPLOYMENT_ATTEMPTED = "true"
+                    }
                 }
             }
         }
+
+
+        /*
+         * ==========================================
+         * VERIFY DEPLOYMENT
+         * ==========================================
+         */
 
         stage('Verify Deployment') {
 
@@ -235,64 +346,83 @@ pipeline {
                 ]) {
 
                     sh """
-                        set -e
+                        set -eu
 
                         export KUBECONFIG="\${KUBECONFIG_FILE}"
 
-                        echo "Waiting for rollout..."
+                        echo "Waiting for Kubernetes rollout..."
 
                         kubectl -n ${K8S_NAMESPACE} rollout status \
                             deployment/${K8S_DEPLOYMENT} \
                             --timeout=180s
 
-                        echo "Deployment successful."
+                        echo "Rollout completed successfully."
 
-                        kubectl -n ${K8S_NAMESPACE} get deployment
+                        echo "Deployment status:"
+
+                        kubectl -n ${K8S_NAMESPACE} get deployment \
+                            ${K8S_DEPLOYMENT}
+
+                        echo "Pod status:"
 
                         kubectl -n ${K8S_NAMESPACE} get pods
 
+                        echo "Service status:"
+
                         kubectl -n ${K8S_NAMESPACE} get service
-                    """
+
+                        echo "Deployment verification successful."
+                    '''
                 }
             }
         }
     }
+
+
+    /*
+     * ==========================================
+     * POST ACTIONS
+     * ==========================================
+     */
 
     post {
 
         success {
 
             echo """
-            =========================================
-            CI/CD PIPELINE SUCCESSFUL
-            =========================================
+=========================================
+       CI/CD PIPELINE SUCCESSFUL
+=========================================
 
-            Application : ${APP_NAME}
-            Image       : ${DOCKER_IMAGE}:${IMAGE_TAG}
-            Namespace   : ${K8S_NAMESPACE}
-            Build       : ${BUILD_NUMBER}
+Application : ${APP_NAME}
+Docker Image: ${DOCKER_IMAGE}:${IMAGE_TAG}
+Namespace   : ${K8S_NAMESPACE}
+Build       : ${BUILD_NUMBER}
+Commit      : ${GIT_COMMIT_SHORT}
 
-            =========================================
-            """
+=========================================
+"""
         }
+
 
         failure {
 
             echo """
-            =========================================
-            CI/CD PIPELINE FAILED
-            =========================================
+=========================================
+        CI/CD PIPELINE FAILED
+=========================================
 
-            Build: ${BUILD_NUMBER}
+Build  : ${BUILD_NUMBER}
+Commit : ${GIT_COMMIT_SHORT ?: 'unknown'}
 
-            Check Jenkins console logs.
+Attempting Kubernetes rollback if required...
 
-            =========================================
-            """
+=========================================
+"""
 
             script {
 
-                if (env.IMAGE_TAG) {
+                if (env.DEPLOYMENT_ATTEMPTED == "true") {
 
                     withCredentials([
                         file(
@@ -302,21 +432,32 @@ pipeline {
                     ]) {
 
                         sh '''
+                            set +e
+
                             export KUBECONFIG="$KUBECONFIG_FILE"
 
+                            echo "Rolling back Kubernetes deployment..."
+
                             kubectl -n cicd-demo rollout undo \
-                                deployment/cicd-demo || true
+                                deployment/cicd-demo
+
+                            echo "Rollback command completed."
                         '''
                     }
+
+                } else {
+
+                    echo "No Kubernetes deployment was attempted. Rollback skipped."
                 }
             }
         }
 
+
         always {
 
-            sh '''
-                echo "Cleaning Docker workspace..."
+            echo "Cleaning Docker resources..."
 
+            sh '''
                 docker system prune -f || true
             '''
 
@@ -324,3 +465,4 @@ pipeline {
         }
     }
 }
+```
