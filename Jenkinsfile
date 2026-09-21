@@ -42,9 +42,20 @@ pipeline {
 
                 checkout scm
 
-                echo "Repository: ${env.GIT_URL}"
-                echo "Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH}"
+                script {
+                    env.GIT_COMMIT_SHORT = sh(
+                        script: 'git rev-parse --short=7 HEAD',
+                        returnStdout: true
+                    ).trim()
+                    
+                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+                }
+
+
+                echo "Repository: ${env.GIT_URL ?: 'Git repository'}"
+                echo "Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'}"
                 echo "Commit: ${env.GIT_COMMIT}"
+                echo "Image Tag: ${env.IMAGE_TAG}"
             }
         }
 
